@@ -14,6 +14,18 @@ const (
 	Match   Status = 2
 )
 
+func NewEntry(id int64, chooseList []int64) *Entry {
+	e := &Entry{chooseList: chooseList, chooseSet: make(map[int64]Status)}
+	e.id = id
+	for _, id := range e.chooseList {
+		if id == e.id {
+			continue
+		}
+		e.chooseSet[id] = UnMatch
+	}
+	return e
+}
+
 func (e *Entry) GetChooseList() []int64 {
 	return e.chooseList
 }
