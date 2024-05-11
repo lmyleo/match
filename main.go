@@ -6,14 +6,18 @@ import (
 	"os"
 )
 
-func main() {
-	convNum, maxChooseNum, outputType, err := input()
-	if err != nil {
-		return
-	}
-	// convNum, maxChooseNum := 3, 3
+const (
+	randMatchRetry = 100 // 随机匹配最大重试 100 次
+)
 
-	p := process.NewBaseProcessor(convNum, maxChooseNum)
+func main() {
+	// convNum, maxChooseNum, outputNum, err := input()
+	// if err != nil {
+	// 	return
+	// }
+	convNum, maxChooseNum, outputNum := 3, 3, 2
+
+	p := process.NewProcessor(convNum, maxChooseNum)
 
 	p.Prepare()
 
@@ -21,13 +25,9 @@ func main() {
 
 	p.Match()
 
-	if outputType == 1 {
-		p.OutputData()
-	} else {
-		p.OutputDebug()
-	}
+	p.Output(process.OutputType(outputNum))
 
-	pause()
+	// pause()
 }
 
 func input() (a, b, c int, err error) {

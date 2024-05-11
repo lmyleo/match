@@ -26,6 +26,15 @@ func NewEntry(id int64, chooseList []int64) *Entry {
 	return e
 }
 
+func (e *Entry) Reset() {
+	for _, id := range e.chooseList {
+		if id == e.id {
+			continue
+		}
+		e.chooseSet[id] = UnMatch
+	}
+}
+
 func (e *Entry) GetChooseList() []int64 {
 	return e.chooseList
 }

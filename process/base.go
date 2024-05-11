@@ -15,6 +15,7 @@ type BaseProcessor struct {
 	MaxChooseNum int // 选择人数
 	Entries      map[int64]*entry.Entry
 	seq          []int64
+
 	Convs        []Conversation // 多轮对话
 	curConv      int            //  当前对话轮数
 	curEntryStat map[int64]bool // 当前对话轮数中，实体是否已经匹配
@@ -26,9 +27,6 @@ type Conversation map[string][]Pair
 type Pair [2]int64
 
 const (
-	ConvNum      = 3
-	MaxChooseNum = 3
-
 	twoWayType = "双向匹配"
 	oneWayType = "单向匹配"
 	randType   = "随机匹配"
@@ -79,7 +77,16 @@ func (p *BaseProcessor) LoadData() error {
 	return nil
 }
 
+func (p *BaseProcessor) Output(outputType OutputType) {
+	if outputType == ForUser {
+		p.OutputData()
+	} else if outputType == ForDev {
+		p.OutputDebug()
+	}
+}
+
 func (p *BaseProcessor) OutputDebug() error {
+	twoWayTot, oneWayTot, randTot := 0, 0, 0
 	for i, conv := range p.Convs {
 		total := 0
 		fmt.Printf("第 %d 轮对话\n", i+1)
@@ -91,6 +98,15 @@ func (p *BaseProcessor) OutputDebug() error {
 				total++
 			}
 			fmt.Println()
+
+			switch matchType {
+			case twoWayType:
+				twoWayTot += len(conv[matchType])
+			case oneWayType:
+				oneWayTot += len(conv[matchType])
+			case randType:
+				randTot += len(conv[matchType])
+			}
 		}
 		fmt.Printf("总对话数: %d\n", total)
 		if total < len(p.seq)/2 {
@@ -98,6 +114,7 @@ func (p *BaseProcessor) OutputDebug() error {
 		}
 		fmt.Println()
 	}
+	fmt.Printf("对话数：双向-%d；单向-%d；随机-%d\n", twoWayTot, oneWayTot, randTot)
 	return nil
 }
 
@@ -125,13 +142,20 @@ func (p *BaseProcessor) OutputData() error {
 	return nil
 }
 
-func (p *BaseProcessor) Match() error {
-	for i := 0; i < p.ConvNum; i++ {
-		p.curEntryStat = make(map[int64]bool) // 每轮对话开始时，清空状态
-		p.curConv = i                         // 当前轮数
-		p.MatchOneConv()
+func (p *BaseProcessor) Match() {
+	// 生成双向匹配
+
+	// 按照不重复原则分配到每轮对话中
+
+	// 生成单向匹配
+
+	return
+}
+
+func (p *BaseProcessor) MatchMultiTimes(times int) {
+	for i := 0; i < times; i++ {
+
 	}
-	return nil
 }
 
 // MatchOneConv 匹配一轮对话
@@ -139,14 +163,11 @@ func (p *BaseProcessor) MatchOneConv() error {
 	// 为保证公平，随机打乱顺序
 	util.Shuffle(p.seq)
 
-	// 双向匹配
-	p.TwoWayMatch()
+	p.TwoWayMatch() // 双向匹配
 
-	// 单向匹配
-	p.OneWayMatch()
+	p.OneWayMatch() // 单向匹配
 
-	// 随机匹配
-	p.RandMatch()
+	p.RandMatch() // 随机匹配
 
 	return nil
 }
@@ -192,13 +213,53 @@ func (p *BaseProcessor) RandMatch() {
 	}
 	p.randMatch[p.curConv] = unMatch
 	// 随机匹配
-	for _, id1 := range unMatch {
-		for _, id2 := range unMatch {
-			if id1 == id2 || p.curEntryStat[id2] {
-				continue
+	for i := 0; i < 100; i++ {
+		pairNum := 0
+		for i := 0; i+1 < len(unMatch); i += 2 {
+			e1, e2 := unMatch[i], unMatch[i+1]
+			if !p.isMatched(e1, e2) {
+				pairNum++
+				continue // e1 与 e2 匹配，查看下两个实体
 			}
-			p.MatchOnePair(randType, id1, id2)
+			// e1 与 e2 无法匹配，需要 e2 与 e3 调换位置
+			swap := false
+			for j := len(unMatch) - 1; j >= 0; j-- {
+				e3 := unMatch[j]
+				if j == i || j == i+1 || p.isMatched(e1, e3) {
+					continue
+				}
+				// 查看换位后是否会破坏已有匹配
+				if j < i {
+					var e4 int64 // e3 之前的匹配者
+					if j%2 == 0 {
+						e4 = unMatch[j+1]
+					} else {
+						e4 = unMatch[j-1]
+					}
+					if p.isMatched(e2, e4) {
+						continue // e2 与 e4 无法匹配，不能换位
+					}
+				}
+				// 换位
+				swap = true
+				unMatch[i+1], unMatch[j] = unMatch[j], unMatch[i+1]
+				pairNum++
+				break
+			}
+			// 无法匹配对话
+			if !swap {
+				break
+			}
 		}
+		if pairNum == len(unMatch)/2 {
+			break
+		}
+		util.Shuffle(unMatch)
+	}
+
+	// 生成匹配
+	for i := 0; i+1 < len(unMatch); i += 2 {
+		p.MatchOnePair(randType, unMatch[i], unMatch[i+1])
 	}
 	return
 }
@@ -206,10 +267,7 @@ func (p *BaseProcessor) RandMatch() {
 // MatchOnePair 匹配一对对话
 func (p *BaseProcessor) MatchOnePair(matchType string, id1, id2 int64) {
 	// 判断是否能匹配
-	if p.curEntryStat[id1] || p.curEntryStat[id2] {
-		return
-	}
-	if p.Entries[id1].IsMatched(id2) {
+	if p.curEntryStat[id1] || p.curEntryStat[id2] || p.Entries[id1].IsMatched(id2) {
 		return
 	}
 
@@ -228,7 +286,7 @@ func (p *BaseProcessor) getMatchableIDs(id int64) (matchableIDs []int64) {
 	if p.curEntryStat[id] {
 		return
 	}
-	for target, _ := range p.Entries[id].GetChooseSet() {
+	for target := range p.Entries[id].GetChooseSet() {
 		// target 在此轮未匹配 && target 未曾与 id 匹配
 		if !p.curEntryStat[target] && !p.Entries[target].IsMatched(id) {
 			matchableIDs = append(matchableIDs, target)
@@ -240,4 +298,8 @@ func (p *BaseProcessor) getMatchableIDs(id int64) (matchableIDs []int64) {
 func (p *BaseProcessor) addEntry(id int64, chooseList []int64) {
 	p.Entries[id] = entry.NewEntry(id, chooseList)
 	p.seq = append(p.seq, id)
+}
+
+func (p *BaseProcessor) isMatched(e1, e2 int64) bool {
+	return p.Entries[e1].IsMatched(e2)
 }
