@@ -24,19 +24,6 @@ type BaseProcessor struct {
 	finish    bool
 }
 
-type Conversation []*Pair
-
-type Pair struct {
-	IDs       [2]int64
-	MatchType string
-}
-
-const (
-	twoWayType = "双向匹配"
-	oneWayType = "单向匹配"
-	randType   = "随机匹配"
-)
-
 var matchTypes = []string{twoWayType, oneWayType, randType}
 
 func NewBaseProcessor(convNum, maxChooseNum int) *BaseProcessor {
@@ -157,6 +144,24 @@ func (p *BaseProcessor) OutputData() error {
 }
 
 func (p *BaseProcessor) Match() {
+	p.MatchMultiTimes(10)
+}
+
+func (p *BaseProcessor) MatchMultiTimes(times int) {
+	p.MatchConvs()
+	bestConv := p.Convs
+	for i := 0; i < times; i++ {
+		util.Shuffle(p.seq)
+		p.clear() // 清空数据
+		p.MatchConvs()
+		if isBetterConv(p.Convs, bestConv) {
+			bestConv = p.Convs
+		}
+	}
+	p.Convs = bestConv
+}
+
+func (p *BaseProcessor) MatchConvs() {
 	// 生成双向匹配
 	p.genTwoWay()
 	// 生成单向匹配
@@ -188,9 +193,9 @@ func (p *BaseProcessor) genTwoWay() {
 	}
 	pairs = p.filterPair(pairs)
 	for _, pair := range pairs {
-		p.matchOnePair(pair)
+		p.matchWithoutLeft(pair)
 	}
-	fmt.Printf("\n双向总数：%d\n", len(pairs))
+	// fmt.Printf("\n双向总数：%d\n", len(pairs))
 }
 
 // genOneWay 生成单向匹配
@@ -213,9 +218,9 @@ func (p *BaseProcessor) genOneWay() {
 	}
 	pairs = p.filterPair(pairs)
 	for _, pair := range pairs {
-		p.matchOnePair(pair)
+		p.matchWithoutLeft(pair)
 	}
-	fmt.Printf("\n单向总数：%d\n", len(pairs))
+	// fmt.Printf("\n单向总数：%d\n", len(pairs))
 }
 
 // genOneWay 生成单向匹配
@@ -245,9 +250,9 @@ func (p *BaseProcessor) genRandom() {
 	}
 	pairs = p.filterPair(pairs)
 	for _, pair := range pairs {
-		p.matchOnePair(pair)
+		p.matchWithoutLeft(pair)
 	}
-	fmt.Printf("\n随机总数：%d\n", len(pairs))
+	// fmt.Printf("\n随机总数：%d\n", len(pairs))
 }
 
 func (p *BaseProcessor) distributeDfs(num int) {
@@ -331,8 +336,8 @@ func (p *BaseProcessor) filterPair(pairs []*Pair) (newPairs []*Pair) {
 	return newPairs
 }
 
-// matchOnePair 生成一对
-func (p *BaseProcessor) matchOnePair(pair *Pair) bool {
+// matchWithoutLeft 生成一对（不涉及 entryLeft 的状态修改）
+func (p *BaseProcessor) matchWithoutLeft(pair *Pair) bool {
 	id1, id2 := pair.IDs[0], pair.IDs[1]
 	if p.isMatched(id1, id2) {
 		return false
@@ -340,7 +345,7 @@ func (p *BaseProcessor) matchOnePair(pair *Pair) bool {
 	p.Entries[id1].Match(id2)
 	p.Entries[id2].Match(id1)
 
-	fmt.Printf("[%d %d] ", id1, id2)
+	// fmt.Printf("[%d %d] ", id1, id2)
 	p.AllPairs = append(p.AllPairs, pair)
 
 	return true
@@ -355,195 +360,21 @@ func (p *BaseProcessor) isMatched(id1, id2 int64) bool {
 	return p.Entries[id1].IsMatched(id2)
 }
 
-// func (p *BaseProcessor) reduceTwoWayMatch() {
-// 	for e1 := range p.twoWayMatch {
-// 		for len(p.twoWayMatch[e1]) > p.ConvNum {
-// 			// 删除匹配数最多的人
-// 			sort.Slice(p.twoWayMatch[e1], func(i, j int) bool {
-// 				e2, e3 := p.twoWayMatch[e1][i], p.twoWayMatch[e1][j]
-// 				return len(p.twoWayMatch[e2]) > len(p.twoWayMatch[e3]) // 降序排序
-// 			})
-// 			p.deleteTwoWayMatch(e1, p.twoWayMatch[e1][0])
-// 		}
-// 	}
-// }
-
-// func (p *BaseProcessor) addTwoWayConv() {
-// 	// 按照双向匹配数排序，优先安排双向匹配多的人
-// 	seq := make([]int64, 0)
-// 	for e := range p.twoWayMatch {
-// 		seq = append(seq, e)
-// 	}
-// 	sort.Slice(seq, func(i, j int) bool {
-// 		e1, e2 := seq[i], seq[j]
-// 		return len(p.twoWayMatch[e1]) > len(p.twoWayMatch[e2]) // 降序排序
-// 	})
-// 	// 将匹配加入对话
-// 	for _, e1 := range seq {
-// 		chooseList := p.twoWayMatch[e1]
-// 		for _, e2 := range chooseList {
-// 			if p.isMatched(e1, e2) {
-// 				continue
-// 			}
-// 			for j := 0; j < p.ConvNum; j++ {
-// 				if p.matchOnePair(twoWayType, j, e1, e2) {
-// 					break
-// 				}
-// 			}
-// 		}
-// 	}
-// }
-
-// func (p *BaseProcessor) addTwoWayMatch(e1, e2 int64) {
-// 	_, ok := p.twoWayMatch[e1]
-// 	if !ok {
-// 		p.twoWayMatch[e1] = make([]int64, 0)
-// 	}
-// 	_, ok = p.twoWayMatch[e2]
-// 	if !ok {
-// 		p.twoWayMatch[e2] = make([]int64, 0)
-// 	}
-// 	p.twoWayMatch[e1] = append(p.twoWayMatch[e1], e2)
-// 	p.twoWayMatch[e2] = append(p.twoWayMatch[e2], e1)
-// }
-
-// func (p *BaseProcessor) deleteTwoWayMatch(e1, e2 int64) {
-// 	p.twoWayMatch[e1] = util.DeleteInt64(p.twoWayMatch[e1], e2)
-// 	p.twoWayMatch[e2] = util.DeleteInt64(p.twoWayMatch[e2], e1)
-// }
-
-// func (p *BaseProcessor) MatchMultiTimes(times int) {
-// 	for i := 0; i < times; i++ {
-
-// 	}
-// }
-
-// MatchOneConv 匹配一轮对话
-// func (p *BaseProcessor) MatchOneConv() error {
-// 	// 为保证公平，随机打乱顺序
-// 	util.Shuffle(p.seq)
-
-// 	p.TwoWayMatch() // 双向匹配
-
-// 	p.OneWayMatch() // 单向匹配
-
-// 	p.RandMatch() // 随机匹配
-
-// 	return nil
-// }
-
-// TwoWayMatch 双向匹配
-// func (p *BaseProcessor) TwoWayMatch() {
-// 	for _, id := range p.seq {
-// 		targets := p.getMatchableIDs(id) // 获取可匹配对象
-
-//			for _, targetID := range targets {
-//				target := p.Entries[targetID]
-//				// 是否满足双向匹配
-//				if target.Find(id) {
-//					p.MatchOnePair(twoWayType, id, targetID)
-//					break
-//				}
-//			}
-//		}
-//		return
-//	}
-//
-// OneWayMatch 单向匹配
-// func (p *BaseProcessor) OneWayMatch() {
-// 	for _, id := range p.seq {
-// 		targets := p.getMatchableIDs(id) // 获取可匹配对象
-
-// 		for _, targetID := range targets {
-// 			p.MatchOnePair(oneWayType, id, targetID)
-// 			break
-// 		}
-// 	}
-// 	return
-// }
-
-// RandMatch 随机匹配
-// func (p *BaseProcessor) RandMatch() {
-// 	unMatch := make([]int64, 0)
-// 	// 找出所有未匹配的实体
-// 	for _, id := range p.seq {
-// 		if _, ok := p.curEntryStat[id]; !ok {
-// 			unMatch = append(unMatch, id)
-// 		}
-// 	}
-// 	p.randMatch[p.curConv] = unMatch
-// 	// 随机匹配
-// 	for i := 0; i < 100; i++ {
-// 		pairNum := 0
-// 		for i := 0; i+1 < len(unMatch); i += 2 {
-// 			e1, e2 := unMatch[i], unMatch[i+1]
-// 			if !p.isMatched(e1, e2) {
-// 				pairNum++
-// 				continue // e1 与 e2 匹配，查看下两个实体
-// 			}
-// 			// e1 与 e2 无法匹配，需要 e2 与 e3 调换位置
-// 			swap := false
-// 			for j := len(unMatch) - 1; j >= 0; j-- {
-// 				e3 := unMatch[j]
-// 				if j == i || j == i+1 || p.isMatched(e1, e3) {
-// 					continue
-// 				}
-// 				// 查看换位后是否会破坏已有匹配
-// 				if j < i {
-// 					var e4 int64 // e3 之前的匹配者
-// 					if j%2 == 0 {
-// 						e4 = unMatch[j+1]
-// 					} else {
-// 						e4 = unMatch[j-1]
-// 					}
-// 					if p.isMatched(e2, e4) {
-// 						continue // e2 与 e4 无法匹配，不能换位
-// 					}
-// 				}
-// 				// 换位
-// 				swap = true
-// 				unMatch[i+1], unMatch[j] = unMatch[j], unMatch[i+1]
-// 				pairNum++
-// 				break
-// 			}
-// 			// 无法匹配对话
-// 			if !swap {
-// 				break
-// 			}
-// 		}
-// 		if pairNum == len(unMatch)/2 {
-// 			break
-// 		}
-// 		util.Shuffle(unMatch)
-// 	}
-
-// 	// 生成匹配
-// 	for i := 0; i+1 < len(unMatch); i += 2 {
-// 		p.MatchOnePair(randType, unMatch[i], unMatch[i+1])
-// 	}
-// 	return
-// }
-
-// func (p *BaseProcessor) getMatchableIDs(id int64) (matchableIDs []int64) {
-// 	if p.curEntryStat[id] {
-// 		return
-// 	}
-// 	for target := range p.Entries[id].GetChooseSet() {
-// 		// target 在此轮未匹配 && target 未曾与 id 匹配
-// 		if !p.curEntryStat[target] && !p.Entries[target].IsMatched(id) {
-// 			matchableIDs = append(matchableIDs, target)
-// 		}
-// 	}
-// 	return
-// }
-
-// func (p *BaseProcessor) addConv(conv int, pair *Pair) {
-// 	id1, id2 := pair.IDs[0], pair.IDs[1]
-// 	p.entryStat[id1][conv] = true
-// 	p.entryStat[id2][conv] = true
-// }
-
-// func (p *BaseProcessor) canAdd(conv int, pair *Pair) bool {
-// 	id1, id2 := pair.IDs[0], pair.IDs[1]
-// 	return !p.entryStat[id1][conv] && !p.entryStat[id2][conv]
-// }
+func (p *BaseProcessor) clear() {
+	p.Convs = make([]Conversation, p.ConvNum)
+	p.entryLeft = make(map[int64]int)
+	p.entryStat = make(map[int64]map[int]bool)
+	p.AllPairs = make(Conversation, 0)
+	p.finish = false
+	for i := 0; i < p.ConvNum; i++ {
+		p.Convs[i] = Conversation{}
+		for _, id := range p.seq {
+			if i == 0 {
+				p.entryLeft[id] = p.ConvNum
+				p.entryStat[id] = make(map[int]bool)
+				p.Entries[id].Clear()
+			}
+			p.entryStat[id][i] = false
+		}
+	}
+}

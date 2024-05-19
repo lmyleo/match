@@ -19,7 +19,7 @@ func NewEntry(id int64, chooseList []int64) *Entry {
 	e := &Entry{chooseList: chooseList, chooseSet: make(map[int64]struct{}), matchSet: make(map[int64]struct{})}
 	e.id = id
 	for _, id := range e.chooseList {
-		if id == e.id {
+		if _, ok := e.chooseSet[id]; ok || id == e.id {
 			continue
 		}
 		e.chooseSet[id] = struct{}{}

@@ -13,3 +13,7 @@ func (e *Entry) IsMatched(id int64) bool {
 	_, ok := e.matchSet[id]
 	return ok
 }
+
+func (e *Entry) Clear() {
+	e.matchSet = make(map[int64]struct{})
+}
