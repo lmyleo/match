@@ -15,7 +15,7 @@ func main() {
 	// if err != nil {
 	// 	return
 	// }
-	convNum, maxChooseNum, outputNum := 3, 3, 2
+	convNum, maxChooseNum, outputNum := 4, 3, 2
 
 	p := process.NewProcessor(convNum, maxChooseNum)
 

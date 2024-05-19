@@ -1,21 +1,15 @@
 package entry
 
 func (e *Entry) Find(id int64) bool {
-	stat, ok := e.chooseSet[id]
-	if ok && stat == UnMatch {
-		return true
-	}
-	return false
+	_, ok := e.chooseSet[id]
+	return ok
 }
 
 func (e *Entry) Match(id int64) {
-	e.chooseSet[id] = Match
+	e.matchSet[id] = struct{}{}
 }
 
 func (e *Entry) IsMatched(id int64) bool {
-	stat, ok := e.chooseSet[id]
-	if ok && stat == Match {
-		return true
-	}
-	return false
+	_, ok := e.matchSet[id]
+	return ok
 }
