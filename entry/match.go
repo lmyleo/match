@@ -1,8 +1,11 @@
 package entry
 
-func (e *Entry) Find(id int64) bool {
-	_, ok := e.chooseSet[id]
-	return ok
+func (e *Entry) Find(id int64) int64 {
+	seq, ok := e.chooseSeq[id]
+	if !ok {
+		return -1
+	}
+	return seq
 }
 
 func (e *Entry) Match(id int64) {

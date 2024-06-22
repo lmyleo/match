@@ -19,6 +19,7 @@ type Conversation []*Pair
 type Pair struct {
 	IDs       [2]int64
 	MatchType string
+	Score     int64
 }
 
 type MatchProcessor interface {

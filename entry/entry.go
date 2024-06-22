@@ -4,8 +4,8 @@ type Entry struct {
 	id         int64
 	property   string
 	chooseList []int64
-	chooseSet  map[int64]struct{} // 1: 未匹配; 2: 已匹配;
-	matchSet   map[int64]struct{}
+	chooseSeq  map[int64]int64    // 喜好顺序
+	matchSet   map[int64]struct{} // 匹配的人的分数
 }
 
 type Status int
@@ -16,13 +16,15 @@ const (
 )
 
 func NewEntry(id int64, chooseList []int64) *Entry {
-	e := &Entry{chooseList: chooseList, chooseSet: make(map[int64]struct{}), matchSet: make(map[int64]struct{})}
+	e := &Entry{chooseList: chooseList, chooseSeq: make(map[int64]int64), matchSet: make(map[int64]struct{})}
 	e.id = id
+	seq := int64(0)
 	for _, id := range e.chooseList {
-		if _, ok := e.chooseSet[id]; ok || id == e.id {
+		if _, ok := e.chooseSeq[id]; ok || id == e.id {
 			continue
 		}
-		e.chooseSet[id] = struct{}{}
+		e.chooseSeq[id] = seq
+		seq++
 	}
 	return e
 }

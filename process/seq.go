@@ -24,7 +24,21 @@ func (p *SeqProcessor) Prepare() {
 }
 
 func (p *SeqProcessor) Match() {
-	p.MatchMultiTimes(10)
+	p.MatchMultiTimes(100)
+}
+
+func (p *SeqProcessor) MatchMultiTimes(times int) {
+	p.MatchConvs()
+	bestConv := p.Convs
+	for i := 0; i < times; i++ {
+		util.Shuffle(p.seq)
+		p.clear() // 清空数据
+		p.MatchConvs()
+		if isBetterConv(p.Convs, bestConv) {
+			bestConv = p.Convs
+		}
+	}
+	p.Convs = bestConv
 }
 
 // MatchConvs 匹配对话
@@ -49,14 +63,23 @@ func (p *SeqProcessor) MatchConvs() error {
 func (p *SeqProcessor) TwoWayMatch() {
 	for _, id := range p.seq {
 		targets := p.getMatchableIDs(id) // 获取可匹配对象
+		maxScore := int64(-1)
+		maxScoreID := int64(-1)
 
 		for _, targetID := range targets {
 			target := p.Entries[targetID]
-			// 是否满足双向匹配
-			if target.Find(id) {
-				p.matchOnePair(twoWayType, id, targetID)
-				break
+			// 找出双向匹配中分数最高的人
+			if target.Find(id) != -1 {
+				score := p.calScore(id, targetID)
+				if score > maxScore {
+					maxScore = score
+					maxScoreID = targetID
+				}
 			}
+		}
+
+		if maxScoreID != -1 {
+			p.matchOnePair(twoWayType, id, maxScoreID)
 		}
 	}
 	return
@@ -67,9 +90,8 @@ func (p *SeqProcessor) OneWayMatch() {
 	for _, id := range p.seq {
 		targets := p.getMatchableIDs(id) // 获取可匹配对象
 
-		for _, targetID := range targets {
-			p.matchOnePair(oneWayType, id, targetID)
-			break
+		if len(targets) > 0 {
+			p.matchOnePair(oneWayType, id, targets[0])
 		}
 	}
 	return
@@ -138,7 +160,7 @@ func (p *SeqProcessor) RandMatch() {
 }
 
 func (p *SeqProcessor) matchOnePair(matchType string, id1, id2 int64) bool {
-	if p.isMatched(id1, id2) {
+	if p.isMatched(id1, id2) || p.entryLeft[id1] < 0 || p.entryLeft[id2] < 0 {
 		return false
 	}
 	p.Entries[id1].Match(id2)

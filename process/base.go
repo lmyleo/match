@@ -174,19 +174,41 @@ func (p *BaseProcessor) MatchConvs() {
 	return
 }
 
+// calScore 计算这一对的分数
+func (p *BaseProcessor) calScore(id1, id2 int64) int64 {
+	if _, ok := p.Entries[id1]; !ok {
+		return 0
+	}
+	if _, ok := p.Entries[id2]; !ok {
+		return 0
+	}
+
+	score := int64(0)
+	s1, s2 := p.Entries[id1].Find(id2), p.Entries[id2].Find(id1)
+	if s1 != -1 {
+		score += 100 - s1
+	}
+	if s2 != -1 {
+		score += 100 - s1
+	}
+
+	return score
+}
+
 // genTwoWay 生成双向匹配
 func (p *BaseProcessor) genTwoWay() {
 	pairs := make([]*Pair, 0)
 	set := make(map[string]struct{}, 0)
 	for _, id1 := range p.seq {
 		for _, id2 := range p.Entries[id1].GetChooseList() {
-			if _, ok := set[fmt.Sprintf("%d_%d", id2, id1)]; !ok && p.Entries[id2].Find(id1) {
+			if _, ok := set[fmt.Sprintf("%d_%d", id2, id1)]; !ok && p.Entries[id2].Find(id1) != -1 {
 				set[fmt.Sprintf("%d_%d", id1, id2)] = struct{}{}
 				p.entryLeft[id1]--
 				p.entryLeft[id2]--
 				pairs = append(pairs, &Pair{
 					IDs:       [2]int64{id1, id2},
 					MatchType: twoWayType,
+					Score:     p.calScore(id1, id2),
 				})
 			}
 		}
@@ -205,13 +227,14 @@ func (p *BaseProcessor) genOneWay() {
 	set := make(map[string]struct{}, 0)
 	for _, id1 := range p.seq {
 		for _, id2 := range p.Entries[id1].GetChooseList() {
-			if _, ok := set[fmt.Sprintf("%d_%d", id2, id1)]; !ok && !p.Entries[id2].Find(id1) {
+			if _, ok := set[fmt.Sprintf("%d_%d", id2, id1)]; !ok && p.Entries[id2].Find(id1) == -1 {
 				set[fmt.Sprintf("%d_%d", id1, id2)] = struct{}{}
 				p.entryLeft[id1]--
 				p.entryLeft[id2]--
 				pairs = append(pairs, &Pair{
 					IDs:       [2]int64{id1, id2},
 					MatchType: oneWayType,
+					Score:     p.calScore(id1, id2),
 				})
 			}
 		}
@@ -283,18 +306,23 @@ func (p *BaseProcessor) distributeDfs(num int) {
 
 // filterPair 过滤多余匹配（涉及状态：p.EntryLeft）
 func (p *BaseProcessor) filterPair(pairs []*Pair) (newPairs []*Pair) {
-	mp := make(map[int64][]int64)
+	mp := make(map[int64][]int64)            // key: id; value: 所有匹配的人
+	score := make(map[int64]map[int64]int64) // key: id; value: 匹配的人的分数
 
 	for _, p := range pairs {
 		id1, id2 := p.IDs[0], p.IDs[1]
 		if _, ok := mp[id1]; !ok {
 			mp[id1] = make([]int64, 0)
+			score[id1] = map[int64]int64{}
 		}
 		if _, ok := mp[id2]; !ok {
 			mp[id2] = make([]int64, 0)
+			score[id2] = map[int64]int64{}
 		}
 		mp[id1] = append(mp[id1], id2)
 		mp[id2] = append(mp[id2], id1)
+		score[id1][id2] = p.Score
+		score[id2][id1] = p.Score
 	}
 
 	for id, matches := range mp {
@@ -303,7 +331,10 @@ func (p *BaseProcessor) filterPair(pairs []*Pair) (newPairs []*Pair) {
 		}
 		sort.Slice(matches, func(i, j int) bool {
 			id1, id2 := matches[i], matches[j]
-			return p.entryLeft[id1] < p.entryLeft[id2]
+			if p.entryLeft[id1] == p.entryLeft[id2] {
+				return score[id][id1] < score[id][id2] // 淘汰分数更小的
+			}
+			return p.entryLeft[id1] < p.entryLeft[id2] // 淘汰剩余匹配数更少的
 		})
 		// 过滤匹配
 		filterCnt := -p.entryLeft[id]
