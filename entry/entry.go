@@ -16,13 +16,14 @@ const (
 )
 
 func NewEntry(id int64, chooseList []int64) *Entry {
-	e := &Entry{chooseList: chooseList, chooseSeq: make(map[int64]int64), matchSet: make(map[int64]struct{})}
+	e := &Entry{chooseList: make([]int64, 0), chooseSeq: make(map[int64]int64), matchSet: make(map[int64]struct{})}
 	e.id = id
 	seq := int64(0)
-	for _, id := range e.chooseList {
+	for _, id := range chooseList {
 		if _, ok := e.chooseSeq[id]; ok || id == e.id {
 			continue
 		}
+		e.chooseList = append(e.chooseList, id)
 		e.chooseSeq[id] = seq
 		seq++
 	}

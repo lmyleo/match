@@ -53,6 +53,7 @@ func (p *BaseProcessor) LoadData() error {
 		// 读取每个人的 id & 其选择的多个 id
 		var id int64
 		choose := make([]int64, 0)
+		addFlag := false
 		for col, value := range content {
 			if col == 1 {
 				id, err = strconv.ParseInt(value, 10, 64)
@@ -63,7 +64,11 @@ func (p *BaseProcessor) LoadData() error {
 			if col == 2 {
 				choose = util.GetNumbers(value)
 				p.addEntry(id, choose[0:int(math.Min(float64(p.MaxChooseNum), float64(len(choose))))])
+				addFlag = true
 			}
+		}
+		if !addFlag {
+			p.addEntry(id, []int64{})
 		}
 	}
 

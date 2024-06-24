@@ -1,3 +1,4 @@
 *.xlsx
 .vscode
 *_test.go
+*/_test/
