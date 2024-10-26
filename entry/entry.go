@@ -29,6 +29,18 @@ func NewEntry(id int64, chooseList []int64) *Entry {
 	}
 	return e
 }
+
+func (e *Entry) FilterChoose(exist map[int64]struct{}) {
+	newList := make([]int64, 0)
+	for _, id := range e.chooseList {
+		if _, ok := exist[id]; ok {
+			newList = append(newList, id)
+		}
+	}
+	e.chooseList = newList
+	return
+}
+
 func (e *Entry) GetChooseList() []int64 {
 	return e.chooseList
 }

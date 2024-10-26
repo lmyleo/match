@@ -71,7 +71,7 @@ func (p *BaseProcessor) LoadData() error {
 			p.addEntry(id, []int64{})
 		}
 	}
-
+	p.filterChoose()
 	// 初始化状态
 	for i := 0; i < p.ConvNum; i++ {
 		for _, id := range p.seq {
@@ -142,7 +142,7 @@ func (p *BaseProcessor) OutputData() error {
 			// fmt.Printf("%v  ", pair)
 			total++
 		}
-		// fmt.Println()
+		fmt.Println("\n")
 	}
 	fmt.Println()
 	return nil
@@ -390,6 +390,16 @@ func (p *BaseProcessor) matchWithoutLeft(pair *Pair) bool {
 func (p *BaseProcessor) addEntry(id int64, chooseList []int64) {
 	p.Entries[id] = entry.NewEntry(id, chooseList)
 	p.seq = append(p.seq, id)
+}
+
+func (p *BaseProcessor) filterChoose() {
+	exist := make(map[int64]struct{})
+	for id, _ := range p.Entries {
+		exist[id] = struct{}{}
+	}
+	for _, e := range p.Entries {
+		e.FilterChoose(exist)
+	}
 }
 
 func (p *BaseProcessor) isMatched(id1, id2 int64) bool {

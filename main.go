@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"match/eval"
 	"match/process"
 	"os"
 	"sync"
@@ -13,25 +12,23 @@ const (
 )
 
 func main() {
-	// algorithm, convNum, maxChooseNum, outputNum, err := input()
-	// if err != nil {
-	// 	return
-	// }
-	// // algorithm, convNum, maxChooseNum, outputNum := 2, 3, 5, 2
+	algorithm, convNum, maxChooseNum, outputNum, err := input()
+	if err != nil {
+		return
+	}
+	// algorithm, convNum, maxChooseNum, outputNum := 3, 3, 50, 2
 
-	// if algorithm == 3 {
-	// 	compare(convNum, maxChooseNum, outputNum)
-	// } else {
-	// 	p := process.NewProcessor(convNum, maxChooseNum, algorithm-1)
-	// 	p.Prepare()
-	// 	p.LoadData()
-	// 	p.Match()
-	// 	p.Output(process.OutputType(outputNum))
-	// }
+	if algorithm == 3 {
+		compare(convNum, maxChooseNum, outputNum)
+	} else {
+		p := process.NewProcessor(convNum, maxChooseNum, algorithm-1)
+		p.Prepare()
+		p.LoadData()
+		p.Match()
+		p.Output(process.OutputType(outputNum))
+	}
 
-	// pause()
-
-	eval.Evaluation(26, 8)
+	pause()
 }
 
 func compare(convNum, maxChooseNum, outputNum int) {
